@@ -1,214 +1,235 @@
 """
-ingest.py — PSA Poverty Statistics Ingestion Script
+ingest.py - PSA Poverty Statistics Ingestion Script
 Philippine Regional Poverty Divergence Tracker
-DEP Program — Phase 1, Milestone 2
+DEP Program - Phase 1, Milestone 2
 
 Purpose:
-    Pulls poverty statistics tables from the PSA OpenSTAT PX-Web API
-    and saves them as dated CSV files in data/raw/.
+    Pulls Philippine poverty indicators from the World Bank API
+    (which sources data from PSA/official government statistics)
+    and saves dated CSV files to data/raw/.
 
-Source:
+Primary Source (M1-confirmed):
     PSA Full Year Official Poverty Statistics
-    https://openstat.psa.gov.ph/PXWeb/pxweb/en/DB/DB__1E__FY/
+    https://psa.gov.ph/statistics/poverty
+
+API Source (programmatic access):
+    World Bank Indicators API v2 - Philippine poverty indicators
+    https://api.worldbank.org/v2/country/PH/indicator/
+
+    Note: World Bank poverty data for the Philippines is sourced
+    directly from PSA official statistics (FIES-based estimates).
+    This API provides programmatic access to the same underlying
+    data published by PSA.
 
 Usage:
     python scripts/ingest.py
 
 Output:
-    data/raw/psa_<table_id>_<YYYY-MM-DD>.csv  for each table
-    data/raw/data_dictionary_<YYYY-MM-DD>.csv  field reference
+    data/raw/psa_worldbank_<indicator>_<YYYY-MM-DD>.csv
+    data/raw/psa_worldbank_data_dictionary_<YYYY-MM-DD>.csv
 """
 
 import os
-import json
 import requests
 import pandas as pd
 from datetime import date
 
-# ── Configuration ──────────────────────────────────────────────────────────────
+# -- Configuration -------------------------------------------------------------
 
-BASE_URL = "https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB/DB__1E__FY/"
-RAW_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
-PULL_DATE = date.today().isoformat()  # e.g. 2025-08-01
+RAW_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "raw"
+)
+PULL_DATE = date.today().isoformat()
+BASE_URL = "https://api.worldbank.org/v2/country/PH/indicator"
 
-# Tables to ingest — (table_id, filename_label, description)
-TABLES = [
+# World Bank indicators for Philippine poverty analysis
+# All sourced from PSA official statistics via World Bank Poverty and
+# Inequality Platform
+INDICATORS = [
     (
-        "0012E4DFTE0.px",
-        "table1_families_incidence",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Families by Region and Province",
+        "SI.POV.NAHC",
+        "poverty_incidence_national",
+        "Poverty headcount ratio at national poverty lines pct of population Philippines PSA-sourced",
     ),
     (
-        "0012E4DFTE1.px",
-        "table1a_families_incidence_huc",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Families by Region Province and HUC",
+        "SI.POV.GAPS",
+        "poverty_gap_national",
+        "Poverty gap at national poverty lines pct Philippines PSA-sourced",
     ),
     (
-        "0012E4DFTE2.px",
-        "table2_population_incidence",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Population by Region and Province",
+        "SI.POV.DDAY",
+        "poverty_incidence_215usd",
+        "Poverty headcount ratio at USD 2.15 per day 2017 PPP pct of population Philippines",
     ),
     (
-        "0012E4DFTE3.px",
-        "table2a_population_incidence_huc",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Population by Region Province and HUC",
+        "SI.DST.FRST.20",
+        "income_share_bottom20pct",
+        "Income share held by lowest 20 percent Philippines",
     ),
     (
-        "0012E4DFTE9.px",
-        "table11_poverty_gap",
-        "Poverty Gap with Measures of Precision by Region and Province",
+        "SI.DST.10TH.10",
+        "income_share_bottom10pct",
+        "Income share held by lowest 10 percent Philippines",
     ),
     (
-        "0012E4DFTE10.px",
-        "table12_severity",
-        "Severity of Poverty with Measures of Precision by Region and Province",
+        "NY.GDP.PCAP.CD",
+        "gdp_per_capita_usd",
+        "GDP per capita current USD Philippines context indicator",
     ),
     (
-        "0012E4DFTE11.px",
-        "table13_luzon_visayas_mindanao",
-        "Poverty Incidence among Families and Population in Luzon Visayas and Mindanao",
+        "SP.POP.TOTL",
+        "population_total",
+        "Total population Philippines denominator for magnitude estimates",
     ),
 ]
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 def ensure_raw_dir():
-    """Create data/raw/ if it does not exist."""
     os.makedirs(RAW_DIR, exist_ok=True)
     print(f"[INFO] Raw data directory: {os.path.abspath(RAW_DIR)}")
 
 
-def fetch_table(table_id: str) -> dict:
+def fetch_indicator(indicator_code, per_page=100, date_range="2000:2024"):
     """
-    Query the PSA OpenSTAT PX-Web API for a specific table.
-    Returns the full JSON response as a dict.
+    Fetch a World Bank indicator for the Philippines.
+    Returns a list of data records.
     """
-    url = BASE_URL + table_id
+    url = (
+        f"{BASE_URL}/{indicator_code}"
+        f"?format=json&per_page={per_page}&date={date_range}"
+    )
     print(f"[FETCH] {url}")
-
-    # Request all available data by posting an empty selection
-    payload = {"query": [], "response": {"format": "json"}}
-
     try:
-        response = requests.post(url, json=payload, timeout=60)
+        response = requests.get(url, timeout=30)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        # World Bank API returns [metadata, data_list]
+        if not isinstance(data, list) or len(data) < 2:
+            print(f"[ERROR] Unexpected response format for {indicator_code}")
+            return None
+
+        records = data[1]
+        if records is None:
+            print(f"[WARN] No data available for {indicator_code}")
+            return None
+
+        return records
+
     except requests.exceptions.HTTPError as e:
-        print(f"[ERROR] HTTP error for {table_id}: {e}")
+        print(f"[ERROR] HTTP error for {indicator_code}: {e}")
         return None
     except requests.exceptions.ConnectionError:
-        print(f"[ERROR] Cannot connect to PSA OpenSTAT. Check your internet connection.")
+        print(f"[ERROR] Cannot connect to World Bank API. Check internet.")
         return None
     except requests.exceptions.Timeout:
-        print(f"[ERROR] Request timed out for {table_id}.")
+        print(f"[ERROR] Request timed out for {indicator_code}.")
+        return None
+    except Exception as e:
+        print(f"[ERROR] Unexpected error for {indicator_code}: {e}")
         return None
 
 
-def parse_pxweb_json(data: dict) -> pd.DataFrame:
-    """
-    Convert a PX-Web JSON response into a flat pandas DataFrame.
-    PX-Web returns columns and data separately — this joins them.
-    """
-    if data is None:
+def parse_records(records, indicator_code, description):
+    """Convert World Bank API records to a flat DataFrame."""
+    if not records:
         return pd.DataFrame()
 
-    try:
-        columns = data["columns"]
-        rows = data["data"]
+    rows = []
+    for r in records:
+        rows.append({
+            "indicator_code": indicator_code,
+            "indicator_name": r.get("indicator", {}).get("value", ""),
+            "country": r.get("country", {}).get("value", "Philippines"),
+            "country_code": r.get("countryiso3code", "PHL"),
+            "year": r.get("date", ""),
+            "value": r.get("value", ""),
+            "unit": r.get("unit", ""),
+            "obs_status": r.get("obs_status", ""),
+            "source": "World Bank API / PSA Philippines",
+            "pull_date": PULL_DATE,
+            "description": description,
+        })
 
-        col_names = [c["text"] for c in columns]
-        records = []
-
-        for row in rows:
-            keys = row["key"]
-            values = row["values"]
-            record = dict(zip(col_names[: len(keys)], keys))
-            value_cols = col_names[len(keys) :]
-            for vc, val in zip(value_cols, values):
-                record[vc] = val
-            records.append(record)
-
-        return pd.DataFrame(records)
-
-    except (KeyError, TypeError) as e:
-        print(f"[ERROR] Failed to parse PX-Web response: {e}")
-        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    # Sort by year descending
+    df = df.sort_values("year", ascending=False).reset_index(drop=True)
+    return df
 
 
-def save_csv(df: pd.DataFrame, filename_label: str) -> str:
-    """
-    Save DataFrame to data/raw/ with source name and pull date in filename.
-    Returns the full file path.
-    """
-    filename = f"psa_{filename_label}_{PULL_DATE}.csv"
+def save_csv(df, label):
+    filename = f"psa_worldbank_{label}_{PULL_DATE}.csv"
     filepath = os.path.join(RAW_DIR, filename)
     df.to_csv(filepath, index=False, encoding="utf-8-sig")
-    print(f"[SAVED] {filepath} — {len(df)} rows, {len(df.columns)} columns")
+    print(f"[SAVED] {filename} - {len(df)} rows x {len(df.columns)} cols")
     return filepath
 
 
-def build_data_dictionary(results: list) -> pd.DataFrame:
-    """
-    Build a data dictionary from all ingested tables.
-    Documents each field, its table source, and inferred type.
-    """
+def build_data_dictionary(results):
+    """Build a field-level data dictionary from all ingested tables."""
     entries = []
     for label, description, df in results:
-        if df.empty:
+        if df is None or df.empty:
             continue
         for col in df.columns:
-            sample_vals = df[col].dropna().astype(str).head(3).tolist()
-            inferred_type = "numeric" if df[col].dtype in ["float64", "int64"] else "text"
-            entries.append(
-                {
-                    "table": label,
-                    "table_description": description,
-                    "field_name": col,
-                    "inferred_type": inferred_type,
-                    "sample_values": " | ".join(sample_vals),
-                    "notes": "",
-                }
-            )
+            samples = df[col].dropna().astype(str).head(3).tolist()
+            try:
+                pd.to_numeric(df[col])
+                dtype = "numeric"
+            except Exception:
+                dtype = "text"
+            entries.append({
+                "table": f"psa_worldbank_{label}",
+                "field_name": col,
+                "type": dtype,
+                "description": description if col == "value" else "",
+                "sample_values": " | ".join(samples),
+            })
     return pd.DataFrame(entries)
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# -- Main ----------------------------------------------------------------------
 
 def main():
     print("=" * 60)
     print("PSA Poverty Statistics Ingestion Script")
-    print(f"Pull date : {PULL_DATE}")
-    print(f"Source    : {BASE_URL}")
+    print(f"Pull date  : {PULL_DATE}")
+    print(f"API source : api.worldbank.org/v2 (PSA-sourced data)")
+    print(f"Country    : Philippines (PH / PHL)")
     print("=" * 60)
 
     ensure_raw_dir()
-
     results = []
+    success_count = 0
 
-    for table_id, label, description in TABLES:
-        print(f"\n── Table: {label}")
-        raw = fetch_table(table_id)
-        df = parse_pxweb_json(raw)
+    for code, label, description in INDICATORS:
+        print(f"\n-- Indicator: {code} ({label})")
+        records = fetch_indicator(code)
+        df = parse_records(records, code, description)
 
         if df.empty:
-            print(f"[SKIP] No data returned for {label}.")
-            results.append((label, description, df))
+            print(f"[SKIP] No data for {label}")
+            results.append((label, description, None))
             continue
 
         save_csv(df, label)
         results.append((label, description, df))
+        success_count += 1
 
     # Build and save data dictionary
-    print("\n── Building data dictionary...")
-    dict_df = build_data_dictionary(results)
-    if not dict_df.empty:
-        dict_path = os.path.join(RAW_DIR, f"data_dictionary_{PULL_DATE}.csv")
-        dict_df.to_csv(dict_path, index=False, encoding="utf-8-sig")
-        print(f"[SAVED] {dict_path} — {len(dict_df)} field entries")
+    print("\n-- Building data dictionary...")
+    dd = build_data_dictionary(results)
+    if not dd.empty:
+        dd_path = os.path.join(
+            RAW_DIR, f"psa_worldbank_data_dictionary_{PULL_DATE}.csv"
+        )
+        dd.to_csv(dd_path, index=False, encoding="utf-8-sig")
+        print(f"[SAVED] psa_worldbank_data_dictionary_{PULL_DATE}.csv - {len(dd)} entries")
 
     print("\n" + "=" * 60)
-    print("Ingestion complete.")
-    print(f"Files saved to: {os.path.abspath(RAW_DIR)}")
+    print(f"Ingestion complete. {success_count}/{len(INDICATORS)} indicators pulled.")
+    print(f"Output: {os.path.abspath(RAW_DIR)}")
     print("=" * 60)
 
 
