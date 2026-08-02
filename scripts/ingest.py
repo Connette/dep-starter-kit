@@ -15,8 +15,8 @@ Usage:
     python scripts/ingest.py
 
 Output:
-    data/raw/psa_<table_id>_<YYYY-MM-DD>.csv  for each table
-    data/raw/data_dictionary_<YYYY-MM-DD>.csv  field reference
+    data/raw/psa_<table_label>_<YYYY-MM-DD>.csv  for each table
+    data/raw/data_dictionary_<YYYY-MM-DD>.csv     field reference
 """
 
 import os
@@ -28,67 +28,44 @@ from datetime import date
 # ── Configuration ──────────────────────────────────────────────────────────────
 
 BASE_URL = "https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB/DB__1E__FY/"
-RAW_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
-PULL_DATE = date.today().isoformat()  # e.g. 2025-08-01
+RAW_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "raw")
+PULL_DATE = date.today().isoformat()  # e.g. 2026-08-02
 
-# Tables to ingest — (table_id, filename_label, description)
+# Confirmed table IDs from PSA OpenSTAT (verified via portal URLs)
 TABLES = [
     (
-        "0012E4DFTE0.px",
+        "0011E3DF010.px",
         "table1_families_incidence",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Families by Region and Province",
+        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Families by Region and Province 2018 2021 2023",
     ),
     (
-        "0012E4DFTE1.px",
-        "table1a_families_incidence_huc",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Families by Region Province and HUC",
-    ),
-    (
-        "0012E4DFTE2.px",
+        "0031E3DF020.px",
         "table2_population_incidence",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Population by Region and Province",
+        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Population by Region and Province 2018 2021 2023",
     ),
     (
-        "0012E4DFTE3.px",
-        "table2a_population_incidence_huc",
-        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Population by Region Province and HUC",
+        "0091E3DF050.px",
+        "table5_magnitude_families",
+        "Magnitude of Poor Families with Measures of Precision by Region and Province 2015 2018 2021",
     ),
     (
-        "0012E4DFTE9.px",
-        "table11_poverty_gap",
-        "Poverty Gap with Measures of Precision by Region and Province",
-    ),
-    (
-        "0012E4DFTE10.px",
-        "table12_severity",
-        "Severity of Poverty with Measures of Precision by Region and Province",
-    ),
-    (
-        "0012E4DFTE11.px",
-        "table13_luzon_visayas_mindanao",
-        "Poverty Incidence among Families and Population in Luzon Visayas and Mindanao",
+        "0111E3DF060.px",
+        "table6_magnitude_population",
+        "Magnitude of Poor Population with Measures of Precision by Region and Province 2015 2018 2021",
     ),
 ]
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def ensure_raw_dir():
-    """Create data/raw/ if it does not exist."""
     os.makedirs(RAW_DIR, exist_ok=True)
     print(f"[INFO] Raw data directory: {os.path.abspath(RAW_DIR)}")
 
 
 def fetch_table(table_id: str) -> dict:
-    """
-    Query the PSA OpenSTAT PX-Web API for a specific table.
-    Returns the full JSON response as a dict.
-    """
     url = BASE_URL + table_id
     print(f"[FETCH] {url}")
-
-    # Request all available data by posting an empty selection
     payload = {"query": [], "response": {"format": "json"}}
-
     try:
         response = requests.post(url, json=payload, timeout=60)
         response.raise_for_status()
@@ -105,41 +82,28 @@ def fetch_table(table_id: str) -> dict:
 
 
 def parse_pxweb_json(data: dict) -> pd.DataFrame:
-    """
-    Convert a PX-Web JSON response into a flat pandas DataFrame.
-    PX-Web returns columns and data separately — this joins them.
-    """
     if data is None:
         return pd.DataFrame()
-
     try:
         columns = data["columns"]
         rows = data["data"]
-
         col_names = [c["text"] for c in columns]
         records = []
-
         for row in rows:
             keys = row["key"]
             values = row["values"]
             record = dict(zip(col_names[: len(keys)], keys))
-            value_cols = col_names[len(keys) :]
+            value_cols = col_names[len(keys):]
             for vc, val in zip(value_cols, values):
                 record[vc] = val
             records.append(record)
-
         return pd.DataFrame(records)
-
     except (KeyError, TypeError) as e:
         print(f"[ERROR] Failed to parse PX-Web response: {e}")
         return pd.DataFrame()
 
 
 def save_csv(df: pd.DataFrame, filename_label: str) -> str:
-    """
-    Save DataFrame to data/raw/ with source name and pull date in filename.
-    Returns the full file path.
-    """
     filename = f"psa_{filename_label}_{PULL_DATE}.csv"
     filepath = os.path.join(RAW_DIR, filename)
     df.to_csv(filepath, index=False, encoding="utf-8-sig")
@@ -148,27 +112,25 @@ def save_csv(df: pd.DataFrame, filename_label: str) -> str:
 
 
 def build_data_dictionary(results: list) -> pd.DataFrame:
-    """
-    Build a data dictionary from all ingested tables.
-    Documents each field, its table source, and inferred type.
-    """
     entries = []
     for label, description, df in results:
         if df.empty:
             continue
         for col in df.columns:
             sample_vals = df[col].dropna().astype(str).head(3).tolist()
-            inferred_type = "numeric" if df[col].dtype in ["float64", "int64"] else "text"
-            entries.append(
-                {
-                    "table": label,
-                    "table_description": description,
-                    "field_name": col,
-                    "inferred_type": inferred_type,
-                    "sample_values": " | ".join(sample_vals),
-                    "notes": "",
-                }
-            )
+            try:
+                pd.to_numeric(df[col])
+                inferred_type = "numeric"
+            except (ValueError, TypeError):
+                inferred_type = "text"
+            entries.append({
+                "table": label,
+                "table_description": description,
+                "field_name": col,
+                "inferred_type": inferred_type,
+                "sample_values": " | ".join(sample_vals),
+                "notes": "",
+            })
     return pd.DataFrame(entries)
 
 
@@ -182,7 +144,6 @@ def main():
     print("=" * 60)
 
     ensure_raw_dir()
-
     results = []
 
     for table_id, label, description in TABLES:
@@ -198,13 +159,15 @@ def main():
         save_csv(df, label)
         results.append((label, description, df))
 
-    # Build and save data dictionary
-    print("\n── Building data dictionary...")
+    # Build and save data dictionary CSV
+    print("\n── Building data dictionary CSV...")
     dict_df = build_data_dictionary(results)
     if not dict_df.empty:
         dict_path = os.path.join(RAW_DIR, f"data_dictionary_{PULL_DATE}.csv")
         dict_df.to_csv(dict_path, index=False, encoding="utf-8-sig")
         print(f"[SAVED] {dict_path} — {len(dict_df)} field entries")
+    else:
+        print("[WARN] No data was ingested — data dictionary is empty.")
 
     print("\n" + "=" * 60)
     print("Ingestion complete.")
