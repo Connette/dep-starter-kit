@@ -1,0 +1,42 @@
+﻿table,field,type,samples
+psa_worldbank_gdp_per_capita_usd_2026-08-02.csv,indicator,text,NY.GDP.PCAP.CD | NY.GDP.PCAP.CD | NY.GDP.PCAP.CD
+psa_worldbank_gdp_per_capita_usd_2026-08-02.csv,year,numeric,2024 | 2023 | 2022
+psa_worldbank_gdp_per_capita_usd_2026-08-02.csv,value,numeric,3985.29464669706 | 3804.08274131718 | 3548.06930572116
+psa_worldbank_gdp_per_capita_usd_2026-08-02.csv,country,text,Philippines | Philippines | Philippines
+psa_worldbank_gdp_per_capita_usd_2026-08-02.csv,pull_date,text,2026-08-02 | 2026-08-02 | 2026-08-02
+psa_worldbank_income_share_bottom10pct_2026-08-02.csv,indicator,text,SI.DST.10TH.10 | SI.DST.10TH.10 | SI.DST.10TH.10
+psa_worldbank_income_share_bottom10pct_2026-08-02.csv,year,numeric,2024 | 2023 | 2022
+psa_worldbank_income_share_bottom10pct_2026-08-02.csv,value,numeric,31.6 | 32.5 | 33.5
+psa_worldbank_income_share_bottom10pct_2026-08-02.csv,country,text,Philippines | Philippines | Philippines
+psa_worldbank_income_share_bottom10pct_2026-08-02.csv,pull_date,text,2026-08-02 | 2026-08-02 | 2026-08-02
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,indicator_code,text,SI.DST.FRST.20 | SI.DST.FRST.20 | SI.DST.FRST.20
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,indicator_name,text,Income share held by lowest 20% | Income share held by lowest 20% | Income share held by lowest 20%
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,country,text,Philippines | Philippines | Philippines
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,country_code,text,PHL | PHL | PHL
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,year,numeric,2024 | 2023 | 2022
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,value,numeric,6.9 | 6.5 | 6.2
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,unit,numeric,
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,obs_status,numeric,
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,source,text,World Bank API / PSA Philippines | World Bank API / PSA Philippines | World Bank API / PSA Philippines
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,pull_date,text,2026-08-02 | 2026-08-02 | 2026-08-02
+psa_worldbank_income_share_bottom20pct_2026-08-02.csv,description,text,Income share held by lowest 20 percent Philippines | Income share held by lowest 20 percent Philippines | Income share held by lowest 20 percent Philippines
+psa_worldbank_population_total_2026-08-02.csv,indicator,text,SP.POP.TOTL | SP.POP.TOTL | SP.POP.TOTL
+psa_worldbank_population_total_2026-08-02.csv,year,numeric,2024 | 2023 | 2022
+psa_worldbank_population_total_2026-08-02.csv,value,numeric,115843670 | 114891199 | 113964338
+psa_worldbank_population_total_2026-08-02.csv,country,text,Philippines | Philippines | Philippines
+psa_worldbank_population_total_2026-08-02.csv,pull_date,text,2026-08-02 | 2026-08-02 | 2026-08-02
+psa_worldbank_poverty_gap_national_2026-08-02.csv,indicator,text,SI.POV.GAPS | SI.POV.GAPS | SI.POV.GAPS
+psa_worldbank_poverty_gap_national_2026-08-02.csv,year,numeric,2024 | 2023 | 2022
+psa_worldbank_poverty_gap_national_2026-08-02.csv,value,numeric,1.0 | 1.6 | 1.6
+psa_worldbank_poverty_gap_national_2026-08-02.csv,country,text,Philippines | Philippines | Philippines
+psa_worldbank_poverty_gap_national_2026-08-02.csv,pull_date,text,2026-08-02 | 2026-08-02 | 2026-08-02
+psa_worldbank_poverty_incidence_215usd_2026-08-02.csv,indicator,text,SI.POV.DDAY | SI.POV.DDAY | SI.POV.DDAY
+psa_worldbank_poverty_incidence_215usd_2026-08-02.csv,year,numeric,2024 | 2023 | 2022
+psa_worldbank_poverty_incidence_215usd_2026-08-02.csv,value,numeric,5.3 | 8.1 | 8.3
+psa_worldbank_poverty_incidence_215usd_2026-08-02.csv,country,text,Philippines | Philippines | Philippines
+psa_worldbank_poverty_incidence_215usd_2026-08-02.csv,pull_date,text,2026-08-02 | 2026-08-02 | 2026-08-02
+psa_worldbank_poverty_incidence_national_2026-08-02.csv,indicator,text,SI.POV.NAHC | SI.POV.NAHC | SI.POV.NAHC
+psa_worldbank_poverty_incidence_national_2026-08-02.csv,year,numeric,2024 | 2023 | 2022
+psa_worldbank_poverty_incidence_national_2026-08-02.csv,value,numeric,15.5 | 18.1 | 16.7
+psa_worldbank_poverty_incidence_national_2026-08-02.csv,country,text,Philippines | Philippines | Philippines
+psa_worldbank_poverty_incidence_national_2026-08-02.csv,pull_date,text,2026-08-02 | 2026-08-02 | 2026-08-02

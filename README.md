@@ -57,6 +57,15 @@ dep-starter-kit/
 
 ---
 
+
+
+### Programmatic Ingestion
+Data is pulled via `scripts/ingest.py` using the World Bank Indicators API v2,
+which sources Philippine poverty statistics directly from PSA official data.
+Run `python scripts/ingest.py` to fetch latest data into `data/raw/`.
+
+
+
 ## Setup
 ```bash
 git clone https://github.com/Froncoyz/dep-starter-kit.git
