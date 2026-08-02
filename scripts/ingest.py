@@ -25,8 +25,13 @@ Usage:
     python scripts/ingest.py
 
 Output:
+<<<<<<< HEAD
     data/raw/psa_worldbank_<indicator>_<YYYY-MM-DD>.csv
     data/raw/psa_worldbank_data_dictionary_<YYYY-MM-DD>.csv
+=======
+    data/raw/psa_<table_label>_<YYYY-MM-DD>.csv  for each table
+    data/raw/data_dictionary_<YYYY-MM-DD>.csv     field reference
+>>>>>>> f8700e762702cb22a7f66835c85ca60ad5878322
 """
 
 import os
@@ -36,6 +41,7 @@ from datetime import date
 
 # -- Configuration -------------------------------------------------------------
 
+<<<<<<< HEAD
 RAW_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "raw"
 )
@@ -80,6 +86,33 @@ INDICATORS = [
         "SP.POP.TOTL",
         "population_total",
         "Total population Philippines denominator for magnitude estimates",
+=======
+BASE_URL = "https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB/DB__1E__FY/"
+RAW_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "raw")
+PULL_DATE = date.today().isoformat()  # e.g. 2026-08-02
+
+# Confirmed table IDs from PSA OpenSTAT (verified via portal URLs)
+TABLES = [
+    (
+        "0011E3DF010.px",
+        "table1_families_incidence",
+        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Families by Region and Province 2018 2021 2023",
+    ),
+    (
+        "0031E3DF020.px",
+        "table2_population_incidence",
+        "Annual Per Capita Poverty Threshold and Poverty Incidence Among Population by Region and Province 2018 2021 2023",
+    ),
+    (
+        "0091E3DF050.px",
+        "table5_magnitude_families",
+        "Magnitude of Poor Families with Measures of Precision by Region and Province 2015 2018 2021",
+    ),
+    (
+        "0111E3DF060.px",
+        "table6_magnitude_population",
+        "Magnitude of Poor Population with Measures of Precision by Region and Province 2015 2018 2021",
+>>>>>>> f8700e762702cb22a7f66835c85ca60ad5878322
     ),
 ]
 
@@ -90,6 +123,7 @@ def ensure_raw_dir():
     print(f"[INFO] Raw data directory: {os.path.abspath(RAW_DIR)}")
 
 
+<<<<<<< HEAD
 def fetch_indicator(indicator_code, per_page=100, date_range="2000:2024"):
     """
     Fetch a World Bank indicator for the Philippines.
@@ -100,6 +134,12 @@ def fetch_indicator(indicator_code, per_page=100, date_range="2000:2024"):
         f"?format=json&per_page={per_page}&date={date_range}"
     )
     print(f"[FETCH] {url}")
+=======
+def fetch_table(table_id: str) -> dict:
+    url = BASE_URL + table_id
+    print(f"[FETCH] {url}")
+    payload = {"query": [], "response": {"format": "json"}}
+>>>>>>> f8700e762702cb22a7f66835c85ca60ad5878322
     try:
         response = requests.get(url, timeout=30)
         response.raise_for_status()
@@ -131,6 +171,7 @@ def fetch_indicator(indicator_code, per_page=100, date_range="2000:2024"):
         return None
 
 
+<<<<<<< HEAD
 def parse_records(records, indicator_code, description):
     """Convert World Bank API records to a flat DataFrame."""
     if not records:
@@ -160,19 +201,50 @@ def parse_records(records, indicator_code, description):
 
 def save_csv(df, label):
     filename = f"psa_worldbank_{label}_{PULL_DATE}.csv"
+=======
+def parse_pxweb_json(data: dict) -> pd.DataFrame:
+    if data is None:
+        return pd.DataFrame()
+    try:
+        columns = data["columns"]
+        rows = data["data"]
+        col_names = [c["text"] for c in columns]
+        records = []
+        for row in rows:
+            keys = row["key"]
+            values = row["values"]
+            record = dict(zip(col_names[: len(keys)], keys))
+            value_cols = col_names[len(keys):]
+            for vc, val in zip(value_cols, values):
+                record[vc] = val
+            records.append(record)
+        return pd.DataFrame(records)
+    except (KeyError, TypeError) as e:
+        print(f"[ERROR] Failed to parse PX-Web response: {e}")
+        return pd.DataFrame()
+
+
+def save_csv(df: pd.DataFrame, filename_label: str) -> str:
+    filename = f"psa_{filename_label}_{PULL_DATE}.csv"
+>>>>>>> f8700e762702cb22a7f66835c85ca60ad5878322
     filepath = os.path.join(RAW_DIR, filename)
     df.to_csv(filepath, index=False, encoding="utf-8-sig")
     print(f"[SAVED] {filename} - {len(df)} rows x {len(df.columns)} cols")
     return filepath
 
 
+<<<<<<< HEAD
 def build_data_dictionary(results):
     """Build a field-level data dictionary from all ingested tables."""
+=======
+def build_data_dictionary(results: list) -> pd.DataFrame:
+>>>>>>> f8700e762702cb22a7f66835c85ca60ad5878322
     entries = []
     for label, description, df in results:
         if df is None or df.empty:
             continue
         for col in df.columns:
+<<<<<<< HEAD
             samples = df[col].dropna().astype(str).head(3).tolist()
             try:
                 pd.to_numeric(df[col])
@@ -185,6 +257,21 @@ def build_data_dictionary(results):
                 "type": dtype,
                 "description": description if col == "value" else "",
                 "sample_values": " | ".join(samples),
+=======
+            sample_vals = df[col].dropna().astype(str).head(3).tolist()
+            try:
+                pd.to_numeric(df[col])
+                inferred_type = "numeric"
+            except (ValueError, TypeError):
+                inferred_type = "text"
+            entries.append({
+                "table": label,
+                "table_description": description,
+                "field_name": col,
+                "inferred_type": inferred_type,
+                "sample_values": " | ".join(sample_vals),
+                "notes": "",
+>>>>>>> f8700e762702cb22a7f66835c85ca60ad5878322
             })
     return pd.DataFrame(entries)
 
@@ -217,6 +304,7 @@ def main():
         results.append((label, description, df))
         success_count += 1
 
+<<<<<<< HEAD
     # Build and save data dictionary
     print("\n-- Building data dictionary...")
     dd = build_data_dictionary(results)
@@ -226,6 +314,17 @@ def main():
         )
         dd.to_csv(dd_path, index=False, encoding="utf-8-sig")
         print(f"[SAVED] psa_worldbank_data_dictionary_{PULL_DATE}.csv - {len(dd)} entries")
+=======
+    # Build and save data dictionary CSV
+    print("\n── Building data dictionary CSV...")
+    dict_df = build_data_dictionary(results)
+    if not dict_df.empty:
+        dict_path = os.path.join(RAW_DIR, f"data_dictionary_{PULL_DATE}.csv")
+        dict_df.to_csv(dict_path, index=False, encoding="utf-8-sig")
+        print(f"[SAVED] {dict_path} — {len(dict_df)} field entries")
+    else:
+        print("[WARN] No data was ingested — data dictionary is empty.")
+>>>>>>> f8700e762702cb22a7f66835c85ca60ad5878322
 
     print("\n" + "=" * 60)
     print(f"Ingestion complete. {success_count}/{len(INDICATORS)} indicators pulled.")
